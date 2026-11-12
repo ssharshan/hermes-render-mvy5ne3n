@@ -18,7 +18,7 @@
 # To upgrade Render skills: bump RENDER_SKILLS_REF and redeploy.
 
 services:
-  - type: web
+  - type: pserv
     name: hermes
     runtime: docker
     region: oregon
@@ -28,8 +28,7 @@ services:
     # tooling + the skill bundle, and sets ENTRYPOINT to our bootstrap wrapper — so
     # no `dockerCommand` override is needed here.
     dockerfilePath: ./Dockerfile
-    autoDeployTrigger: off
-    healthCheckPath: /api/status
+    autoDeployTrigger: on
 
     disk:
       name: hermes-data

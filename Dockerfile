@@ -54,19 +54,21 @@ RUN set -eu; \
 # overlays would shadow upstream entries.
 COPY --chown=hermes:hermes skills/ /opt/render-tools/skills-local/
 
-# Boot-time wrapper: patches /opt/data/config.yaml, then hands off to
-# the upstream entrypoint chain (tini → docker/entrypoint.sh).
-COPY --chown=root:root scripts/bootstrap.sh /opt/render-tools/bootstrap.sh
+# Config patcher, run at boot as an s6-overlay cont-init hook. 03- sorts
+# after upstream's 01-hermes-setup (chowns /opt/data, seeds config.yaml)
+# and 02-reconcile-profiles, and before the gateway/dashboard start.
 COPY --chown=root:root scripts/patch-config.py /opt/render-tools/patch-config.py
-RUN chmod 0755 /opt/render-tools/bootstrap.sh /opt/render-tools/patch-config.py
+COPY --chown=root:root scripts/03-render-tools /etc/cont-init.d/03-render-tools
+RUN chmod 0755 /opt/render-tools/patch-config.py /etc/cont-init.d/03-render-tools
 
 # Pre-create the dir the patcher writes to so chown works cleanly on
 # first boot. The mounted disk replaces this empty dir at runtime;
 # baking it just keeps the image self-contained for any non-disk use.
 RUN install -d -o hermes -g hermes -m 0755 /opt/data
 
-# Stay as root so the bootstrap can chown the mounted /opt/data on first
-# boot, then `gosu hermes` for the config patch, then exec the upstream
-# entrypoint (which also runs as root and does its own gosu drop).
-ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/opt/render-tools/bootstrap.sh"]
+# Use upstream's s6-overlay dispatcher (/init as PID 1, privilege drop via
+# s6-setuidgid). Do NOT wrap it: since upstream moved off tini/gosu, any
+# custom ENTRYPOINT ends up running as the hermes user and the gateway
+# never starts. Re-declaring ENTRYPOINT resets CMD, so CMD follows it.
+ENTRYPOINT ["/opt/hermes/docker/entrypoint-dispatch.sh"]
 CMD ["gateway", "run"]

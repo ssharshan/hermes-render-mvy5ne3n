@@ -1,0 +1,22 @@
+#!/command/with-contenv sh
+# s6-overlay cont-init hook: registers the Render MCP server and skill
+# bundles in config.yaml. Replaces the old bootstrap.sh ENTRYPOINT wrapper,
+# which broke when upstream Hermes moved to s6-overlay (no gosu, and
+# docker/entrypoint.sh became a stub that never starts the gateway).
+#
+# Runs as root, after upstream's 01-hermes-setup has chowned /opt/data and
+# seeded config.yaml, and before any supervised service starts. The patcher
+# itself runs as the hermes user. Never fails the boot.
+
+PATCHER=/opt/render-tools/patch-config.py
+CONFIG="${HERMES_HOME:-/opt/data}/config.yaml"
+
+if [ -x "${PATCHER}" ]; then
+  if ! s6-setuidgid hermes "${PATCHER}" "${CONFIG}"; then
+    echo "[render-tools] warning: config patch failed; continuing with unmodified config" >&2
+  fi
+else
+  echo "[render-tools] warning: ${PATCHER} not found or not executable; skipping" >&2
+fi
+
+exit 0

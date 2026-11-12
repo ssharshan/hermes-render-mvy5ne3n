@@ -25,8 +25,8 @@ services:
     plan: standard
     # Render builds the image from this repo's Dockerfile on every deploy.
     # The Dockerfile FROMs the pinned upstream Hermes image, adds Render
-    # tooling + the skill bundle, and sets ENTRYPOINT to our bootstrap wrapper — so
-    # no `dockerCommand` override is needed here.
+    # tooling + the skill bundle and a boot-time config patcher, and keeps
+    # upstream's s6-overlay entrypoint — so no `dockerCommand` override.
     dockerfilePath: ./Dockerfile
     autoDeployTrigger: off
 
@@ -41,16 +41,22 @@ services:
       # keys, and chat platform tokens are set through the Hermes dashboard
       # (API Keys tab), which writes them to /opt/data/.env on the disk.
 
-      # Dashboard side-process. The entrypoint backgrounds `hermes dashboard`
-      # before exec'ing `gateway run` whenever HERMES_DASHBOARD is truthy.
-      # HERMES_DASHBOARD_HOST=0.0.0.0 makes the entrypoint pass --insecure
-      # so the dashboard accepts non-loopback binds.
+      # Dashboard: an s6-supervised service, started when HERMES_DASHBOARD
+      # is truthy. It binds 0.0.0.0 so the Tailscale subnet router can
+      # reach it over Render's private network.
       - key: HERMES_DASHBOARD
         value: "1"
       - key: HERMES_DASHBOARD_HOST
         value: "0.0.0.0"
       - key: HERMES_DASHBOARD_PORT
         value: "10000"
+      # Upstream refuses non-loopback dashboards without an auth provider
+      # (--insecure is gone). Basic auth: the password is generated on
+      # first deploy; read it from this service's Environment tab.
+      - key: HERMES_DASHBOARD_BASIC_AUTH_USERNAME
+        value: "admin"
+      - key: HERMES_DASHBOARD_BASIC_AUTH_PASSWORD
+        generateValue: true
       # Exposes a Chat tab in the dashboard that embeds the full Hermes TUI
       # over a server-side PTY + xterm.js. This is how you chat with the
       # agent without a real terminal on the host side.

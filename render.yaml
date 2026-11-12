@@ -28,7 +28,7 @@ services:
     # tooling + the skill bundle, and sets ENTRYPOINT to our bootstrap wrapper — so
     # no `dockerCommand` override is needed here.
     dockerfilePath: ./Dockerfile
-    autoDeployTrigger: on
+    autoDeployTrigger: off
 
     disk:
       name: hermes-data

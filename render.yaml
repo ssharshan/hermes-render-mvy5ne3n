@@ -19,7 +19,7 @@
 
 services:
   - type: pserv
-    name: hermes
+    name: hermes-private
     runtime: docker
     region: oregon
     plan: standard
